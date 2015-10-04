@@ -1,0 +1,12 @@
+@startuml
+Client->Server : Awake
+alt Respons
+    loop
+        Server->Client : Command
+        Client->Server : Respons
+    end
+    Server->Client : Sleep [TIME]
+else No Connection
+    Client->Client : Sleep [Random]
+End
+@enduml
