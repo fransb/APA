@@ -1,0 +1,5 @@
+task doc (type : Exec) {
+    println 'Start Document'
+    
+    commandLine 'java', '-jar', '/bin/plantuml.jar', '-verbose', 'sequenceDiagram.txt'
+}
