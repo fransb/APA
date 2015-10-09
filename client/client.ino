@@ -31,50 +31,26 @@
 #include "Cosa/IOStream/Driver/UART.hh"
 #include "Cosa/Watchdog.hh"
 #include "Cosa/RTC.hh"
+#include "Cosa/AnalogPin.hh"
 
 // Configuration; network and device addresses.
 #define PING_ID 0x80
 #define PONG_ID 0x81
 #define NETWORK 0xC05A
 #define DEVICE PING_ID
-
-// Select Wireless device driver
-// #include <CC1101.h>
-// CC1101 rf(NETWORK, DEVICE);
-
 #include <NRF24L01P.h>
 NRF24L01P rf(NETWORK, DEVICE);
 
-// #include <RFM69.h>
-// RFM69 rf(NETWORK, DEVICE);
-
 #include <VWI.h>
-// #include <BitstuffingCodec.h>
-// BitstuffingCodec codec;
-// #include <Block4B5BCodec.h>
-// Block4B5BCodec codec;
-// #include <HammingCodec_7_4.h>
-// HammingCodec_7_4 codec;
-// #include <HammingCodec_8_4.h>
-// HammingCodec_8_4 codec;
-// #include <ManchesterCodec.h>
-// ManchesterCodec codec;
-/* #include <VirtualWireCodec.h> */
-/* VirtualWireCodec codec; */
-/* #define SPEED 4000 */
-/* #if defined(BOARD_ATTINY) */
-/* VWI rf(NETWORK, DEVICE, SPEED, Board::D1, Board::D0, &codec); */
-/* #else */
-/* VWI rf(NETWORK, DEVICE, SPEED, Board::D7, Board::D8, &codec); */
-/* #endif */
-
 typedef int16_t ping_t;
 static const uint8_t PING_TYPE = 0x80;
+
+AnalogPin aPin(Board::A0);
 
 void setup()
 {
   uart.begin(9600);
-  trace.begin(&uart, PSTR("CosaWirelessPing: started"));
+  trace.begin(&uart, PSTR("Client: the sampler"));
   Watchdog::begin();
   RTC::begin();
   ASSERT(rf.begin());
@@ -94,31 +70,31 @@ void loop()
   static const uint16_t ARW = 200;
   static uint16_t arc = 0;
 
-  // Sequence number
-  static ping_t nr = 0;
+  ping_t cmd = 0;
+  ping_t value = aPin.sample();
+  INFO("aPin = %d", value);
 
   // Receive port and source address
   uint8_t port;
   uint8_t src;
 
-  // Send sequence number and receive update. Count number of retransmissions
+  // Send value, receive command.
   uint32_t now = RTC::millis();
   uint8_t rc = 0;
-  trace << now << PSTR(":ping:nr=") << nr;
+  trace << now << PSTR(":a0:value=") << value;
   while (1) {
-    rf.send(PONG_ID, PING_TYPE, &nr, sizeof(nr));
-    int res = rf.recv(src, port, &nr, sizeof(nr), ARW);
-    if (res == (int) sizeof(nr)) break;
+    rf.send(PONG_ID, PING_TYPE, &value, sizeof(value));
+    int res = rf.recv(src, port, &cmd, sizeof(cmd), ARW);
+    if (res == (int) sizeof(cmd)) break;
     rc += 1;
   }
   arc += rc;
-  trace << PSTR(",pong:nr=") << nr
+  trace << PSTR(",server:cmd=") << cmd
 	<< PSTR(",rc=") << rc
 	<< PSTR(",arc=") << arc
-	<< PSTR(",dr%=") << (arc * 100L) / (nr + arc)
 	<< endl;
   rf.powerdown();
-  static const uint32_t PERIOD = 2000L;
+  static const uint32_t PERIOD = 10000L;
   uint32_t ms = PERIOD - RTC::since(now);
   if (ms > PERIOD) ms = PERIOD;
   delay(ms);

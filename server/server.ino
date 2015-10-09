@@ -37,34 +37,10 @@
 #define DEVICE 0x81
 
 // Select Wireless device driver
-// #include <CC1101.h>
-// CC1101 rf(NETWORK, DEVICE);
-
 #include <NRF24L01P.h>
 NRF24L01P rf(NETWORK, DEVICE);
 
-// #include <RFM69.h>
-// RFM69 rf(NETWORK, DEVICE);
-
 #include <VWI.h>
-// #include <BitstuffingCodec.h>
-// BitstuffingCodec codec;
-// #include <Block4B5BCodec.h>
-// Block4B5BCodec codec;
-// #include <HammingCodec_7_4.h>
-// HammingCodec_7_4 codec;
-// #include <HammingCodec_8_4.h>
-// HammingCodec_8_4 codec;
-// #include <ManchesterCodec.h>
-// ManchesterCodec codec;
-/* #include <VirtualWireCodec.h> */
-/* VirtualWireCodec codec; */
-/* #define SPEED 4000 */
-/* #if defined(BOARD_ATTINY) */
-/* VWI rf(NETWORK, DEVICE, SPEED, Board::D1, Board::D0, &codec); */
-/* #else */
-/* VWI rf(NETWORK, DEVICE, SPEED, Board::D7, Board::D8, &codec); */
-/* #endif */
 
 typedef int16_t ping_t;
 static const uint8_t PING_TYPE = 0x80;
@@ -72,7 +48,7 @@ static const uint8_t PING_TYPE = 0x80;
 void setup()
 {
   uart.begin(9600);
-  trace.begin(&uart, PSTR("CosaWirelessPong: started"));
+  trace.begin(&uart, PSTR("Server: the commander"));
   Watchdog::begin();
   RTC::begin();
   ASSERT(rf.begin());
@@ -85,11 +61,11 @@ void loop()
 {
   uint8_t port;
   uint8_t src;
-  ping_t nr;
+  ping_t value;
+  ping_t cmd = 1;
 
-  while (rf.recv(src, port, &nr, sizeof(nr)) != sizeof(nr)) yield();
+  while (rf.recv(src, port, &value, sizeof(value)) != sizeof(value)) yield();
   if (port != PING_TYPE) return;
-  trace << RTC::millis() << PSTR(":pong:nr=") << nr << endl;
-  nr += 1;
-  rf.send(src, port, &nr, sizeof(nr));
+  trace << RTC::millis() << PSTR(":samper:value=") << value << endl;
+  rf.send(src, port, &cmd, sizeof(cmd));
 }
