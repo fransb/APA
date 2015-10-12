@@ -45,7 +45,12 @@ NRF24L01P rf(NETWORK, DEVICE);
 typedef int16_t ping_t;
 static const uint8_t PING_TYPE = 0x80;
 
-AnalogPin aPin(Board::A0);
+#include <../command_type.h>
+
+AnalogPin aPin0(Board::A0);
+AnalogPin aPin1(Board::A1);
+AnalogPin aPin2(Board::A2);
+
 
 void setup()
 {
@@ -71,8 +76,11 @@ void loop()
   static uint16_t arc = 0;
 
   ping_t cmd = 0;
-  ping_t value = aPin.sample();
+  ping_t value = aPin0.sample();
   INFO("aPin = %d", value);
+
+  APA::message_t message;
+  message.command = APA::AWAKE;
 
   // Receive port and source address
   uint8_t port;
@@ -82,6 +90,7 @@ void loop()
   uint32_t now = RTC::millis();
   uint8_t rc = 0;
   trace << now << PSTR(":a0:value=") << value;
+
   while (1) {
     rf.send(PONG_ID, PING_TYPE, &value, sizeof(value));
     int res = rf.recv(src, port, &cmd, sizeof(cmd), ARW);
