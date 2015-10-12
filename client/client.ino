@@ -45,7 +45,9 @@ NRF24L01P rf(NETWORK, DEVICE);
 typedef int16_t ping_t;
 static const uint8_t PING_TYPE = 0x80;
 
-AnalogPin aPin(Board::A0);
+AnalogPin aPin0(Board::A0);
+AnalogPin aPin1(Board::A1);
+bool data = false;
 
 void setup()
 {
@@ -71,7 +73,16 @@ void loop()
   static uint16_t arc = 0;
 
   ping_t cmd = 0;
-  ping_t value = aPin.sample();
+  ping_t value;
+  if (data) {
+    value = aPin0.sample();
+    data = false;
+    trace << PSTR("PIN0");
+  } else {
+    value = aPin1.sample();
+    data = true;    
+    trace << PSTR("PIN1");
+  }
   INFO("aPin = %d", value);
 
   // Receive port and source address
