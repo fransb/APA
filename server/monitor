@@ -1,0 +1,2 @@
+#!/bin/bash
+cosa uno monitor MONITOR_PORT=/dev/ttyUSB0

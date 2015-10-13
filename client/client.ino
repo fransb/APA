@@ -34,20 +34,19 @@
 #include "Cosa/AnalogPin.hh"
 
 // Configuration; network and device addresses.
-#define PING_ID 0x80
+/*#define PING_ID 0x80
 #define PONG_ID 0x81
 #define NETWORK 0xC05A
-#define DEVICE PING_ID
-#include <NRF24L01P.h>
-NRF24L01P rf(NETWORK, DEVICE);
+#define DEVICE PING_ID*/
 
+#include <NRF24L01P.h>
 #include <VWI.h>
-typedef int16_t ping_t;
-static const uint8_t PING_TYPE = 0x80;
+#include <../command_type.h>
+NRF24L01P rf(APA::NETWORK, APA::CLIENT_ID);
 
 AnalogPin aPin0(Board::A0);
 AnalogPin aPin1(Board::A1);
-bool data = false;
+AnalogPin aPin2(Board::A2);
 
 void setup()
 {
@@ -59,54 +58,48 @@ void setup()
 #if defined(USE_LOW_POWER)
   rf.set_output_power_level(-18);
 #endif
-  trace << PSTR("nr=sequence number") << endl;
-  trace << PSTR("rc=retransmission count") << endl;
-  trace << PSTR("arc=accumulated retransmission count") << endl;
-  trace << PSTR("dr%=drop rate procent (arc*100/(arc + nr))") << endl;
-  trace << endl;
 }
 
 void loop()
 {
-  // Auto retransmission wait (ms) and acculated retransmission counter
-  static const uint16_t ARW = 200;
-  static uint16_t arc = 0;
-
-  ping_t cmd = 0;
-  ping_t value;
-  if (data) {
-    value = aPin0.sample();
-    data = false;
-    trace << PSTR("PIN0");
-  } else {
-    value = aPin1.sample();
-    data = true;    
-    trace << PSTR("PIN1");
-  }
-  INFO("aPin = %d", value);
-
-  // Receive port and source address
-  uint8_t port;
-  uint8_t src;
-
-  // Send value, receive command.
-  uint32_t now = RTC::millis();
-  uint8_t rc = 0;
-  trace << now << PSTR(":a0:value=") << value;
+  rf.powerup();
+  APA::message_t message;
+  message.command = APA::AWAKE;
+  message.payload = 0;
+  uint16_t value;
+  rf.send(APA::SERVER_ID, APA::PING_TYPE, &message, sizeof(message));
+  uint32_t PERIOD = 1000L;
   while (1) {
-    rf.send(PONG_ID, PING_TYPE, &value, sizeof(value));
-    int res = rf.recv(src, port, &cmd, sizeof(cmd), ARW);
-    if (res == (int) sizeof(cmd)) break;
-    rc += 1;
+    uint8_t src;
+    uint8_t port;
+    int res = rf.recv(src, port, &message, sizeof(message), APA::wait);
+    if (res == (int) sizeof(message)) {
+      trace << PSTR("client:cmd=") << message.command << endl;
+      trace << PSTR("client:payload=") << message.payload << endl;
+      if (message.command == APA::SEND_ANALOG_PIN){
+
+	if (message.payload == 0) {
+	  value = aPin0.sample();
+	} else if (message.payload == 1) {
+	  value = aPin1.sample();	
+	} else {
+	  value = aPin2.sample();
+	}
+	message.command = APA::ANALOG_PIN_VALUE;
+	message.payload = value;
+	rf.send(APA::SERVER_ID, APA::PING_TYPE, &message, sizeof(message));
+	
+      } else if (message.command == APA::SLEEP) {
+	PERIOD = message.payload;
+	break;
+      }
+    }
   }
-  arc += rc;
-  trace << PSTR(",server:cmd=") << cmd
-	<< PSTR(",rc=") << rc
-	<< PSTR(",arc=") << arc
-	<< endl;
+    
   rf.powerdown();
-  static const uint32_t PERIOD = 10000L;
+  uint32_t now = RTC::millis();
   uint32_t ms = PERIOD - RTC::since(now);
   if (ms > PERIOD) ms = PERIOD;
-  delay(ms);
+  delay(ms); 
+    
 }
