@@ -68,7 +68,7 @@ void loop()
   message.payload = 0;
   uint16_t value;
   rf.send(APA::SERVER_ID, APA::PING_TYPE, &message, sizeof(message));
-  uint32_t PERIOD = 1000L;
+  uint32_t sleep_time = 100L;
   while (1) {
     uint8_t src;
     uint8_t port;
@@ -90,16 +90,15 @@ void loop()
 	rf.send(APA::SERVER_ID, APA::PING_TYPE, &message, sizeof(message));
 	
       } else if (message.command == APA::SLEEP) {
-	PERIOD = message.payload;
+	sleep_time = message.payload;
 	break;
       }
+    } else {
+      break;
     }
   }
     
   rf.powerdown();
-  uint32_t now = RTC::millis();
-  uint32_t ms = PERIOD - RTC::since(now);
-  if (ms > PERIOD) ms = PERIOD;
-  delay(ms); 
+  delay(sleep_time); 
     
 }
